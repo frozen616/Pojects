@@ -1,0 +1,221 @@
+// global constants
+const int TriggerPin = 12;
+const int EchoPin = 11;
+const int LED = 6;
+
+#include <SimpleDHT.h>
+
+#define SAMPLE_TIME 5000
+#define DEFAULT_TEMPERATURE 20
+#define DEFAULT_HUMIDITY    15
+
+// for DHT11, 
+//      VCC: 5V or 3V
+//      GND: GND
+//      DATA: 2
+int pinDHT11 = 2;
+
+SimpleDHT11 dht11;
+
+// Sampling time control variable
+unsigned long currentTime;   
+
+// Initialize variables to default values
+byte currentTemperature = DEFAULT_TEMPERATURE;
+byte currentHumidity = DEFAULT_HUMIDITY;
+
+int i = 0;//i is used to count the interations through the loop. 
+
+ int a_unfiltered[5] = {2};//created to store the unfiltered data
+ int a_filtered[5] = {2};//created for the filtered data 
+
+
+
+
+//--------------------------------------------------------------------
+
+
+
+
+void setup() {
+  pinMode(TriggerPin, OUTPUT);
+  pinMode(EchoPin, INPUT);
+  pinMode(LED, OUTPUT);
+
+  Serial.begin(9600);
+
+ 
+}
+
+
+
+
+
+//--------------------------------------------------------------------
+
+
+
+
+
+unsigned long get_ultrasonic_measurment(void)
+{
+ 
+  unsigned long startTime, stopTime, elapsedTime;
+
+  
+  //1. Set trigger line low for a brief interval, 2 microseconds
+  digitalWrite(TriggerPin, LOW);
+  delayMicroseconds(2);
+
+  //2. change the trigger line from low to high
+  digitalWrite(TriggerPin, HIGH);
+  
+  
+  //3. Hold the trigger line high for at least 10 microseconds
+  delayMicroseconds(10);
+  
+  
+  //4. pull trigger line low
+  digitalWrite(TriggerPin, LOW);
+
+  
+
+  //5. Start timer when the echo line rises from low to high
+  while(digitalRead(EchoPin) == LOW) {/*do nothing*/}
+  startTime = micros();
+  
+  
+
+  //6. Continue timing until echo line falls from high to low
+  while(digitalRead(EchoPin) == HIGH) {/*do nothing*/}
+  
+  
+  //7. Stop timer
+  stopTime = micros();
+  
+
+  //8. Measure elapsed time
+  elapsedTime = stopTime - startTime;
+  return elapsedTime;
+}
+
+
+
+//--------------------------------------------------------------------
+
+
+
+
+
+bool readTemperature(byte *temperature, byte *humidity, byte data[40])
+{
+//   read requires an array to store the raw data bits returned
+ //  read returns a non-zero value when it fails
+  if (dht11.read(pinDHT11, temperature, humidity, data)) {
+    Serial.print("Read DHT11 failed");
+    return false;
+  }
+  else return true;
+}
+
+
+//---------------------------------------------------------------------
+
+
+//This function uses a bubble sort to find the median and return it as an unsigned long
+//it is passed the array of a_filtered which is the same as a_unfiltered until it is sorted.
+unsigned long find_median( int a_filtered[])
+{
+   for(int outer = 0; outer < i; ++outer)
+  {
+    for(int inner = 0; inner < i; ++inner)
+    {
+      if (a_filtered[outer] < a_filtered[inner])
+      {
+        int temp = a_filtered[outer];
+        a_filtered[outer] = a_filtered[inner];
+        a_filtered[inner] = temp;
+      }
+    }
+  }
+  return a_filtered[2];
+}
+
+
+
+
+
+//--------------------------------------------------------------------
+
+
+
+
+
+void loop() {
+ static unsigned long pulseDuration; //units, microseconds
+ static unsigned long distanceCm; 
+ static double velocity_of_sound, time_per_cm;
+
+
+
+
+
+ 
+
+
+
+ static byte temperature, humidity, data[40];
+  
+  if( millis()-currentTime > SAMPLE_TIME){    
+    // only update values if sensor did not fail
+    if( readTemperature(&temperature, &humidity, data) == true){
+      currentTemperature = temperature;
+      currentHumidity = humidity;
+    }
+    currentTime = millis();       // update time 
+  }
+ velocity_of_sound = 331.40 + (0.06 * currentTemperature);//Calculation to incorperated temperature
+  
+ time_per_cm = 2UL*(1.00/((velocity_of_sound*100.00)/1000000.00));//does the math to convert velocity of sound 
+ //into the time it takes sound to travel one cm.
+  
+ pulseDuration = get_ultrasonic_measurment();
+  
+ distanceCm = pulseDuration / time_per_cm;
+
+ a_unfiltered[i] = distanceCm;
+
+  
+
+ //for(int k = 0; k<5; k++){
+ //  
+ //}
+ 
+ a_filtered[i] = a_unfiltered[i];
+
+
+
+
+  
+
+ Serial.print(a_unfiltered[i]);
+ Serial.print("------------------------");      
+ Serial.println(find_median( a_filtered)); 
+
+
+
+ if(i == 5){
+ 
+  i=0;  
+    
+ }
+   
+
+ 
+ i++;
+
+
+  analogWrite(LED, 255/a_filtered[2]);
+
+}
+
