@@ -1,33 +1,26 @@
 // global constants
-const int TriggerPin = 12;
-const int EchoPin = 11;
+const int TriggerPin = 11;
+const int EchoPin = A3;
 const int LED = 6;
 
-#include <SimpleDHT.h>
 
 #define SAMPLE_TIME 5000
 #define DEFAULT_TEMPERATURE 20
-#define DEFAULT_HUMIDITY    15
 
-// for DHT11, 
-//      VCC: 5V or 3V
-//      GND: GND
-//      DATA: 2
-int pinDHT11 = 2;
 
-SimpleDHT11 dht11;
+
+
 
 // Sampling time control variable
 unsigned long currentTime;   
+unsigned long velocity_of_sound, time_per_cm;
 
-// Initialize variables to default values
-byte currentTemperature = DEFAULT_TEMPERATURE;
-byte currentHumidity = DEFAULT_HUMIDITY;
+
 
 int i = 0;//i is used to count the interations through the loop. 
 
- int a_unfiltered[5] = {2};//created to store the unfiltered data
- int a_filtered[5] = {2};//created for the filtered data 
+ int a_unfiltered[5] = {0};//created to store the unfiltered data
+ int a_filtered[5] = {0};//created for the filtered data 
 
 
 
@@ -40,9 +33,12 @@ int i = 0;//i is used to count the interations through the loop.
 void setup() {
   pinMode(TriggerPin, OUTPUT);
   pinMode(EchoPin, INPUT);
-  pinMode(LED, OUTPUT);
 
-  Serial.begin(9600);
+  Serial.begin(115200);
+
+  velocity_of_sound = 331.40 + (0.06 * DEFAULT_TEMPERATURE);//Calculation to incorperated temperature
+
+  time_per_cm = 2UL*(1.00/((velocity_of_sound*100.00)/1000000.00));//does the math to convert velocity of sound
 
  
 }
@@ -107,16 +103,6 @@ unsigned long get_ultrasonic_measurment(void)
 
 
 
-bool readTemperature(byte *temperature, byte *humidity, byte data[40])
-{
-//   read requires an array to store the raw data bits returned
- //  read returns a non-zero value when it fails
-  if (dht11.read(pinDHT11, temperature, humidity, data)) {
-    Serial.print("Read DHT11 failed");
-    return false;
-  }
-  else return true;
-}
 
 
 //---------------------------------------------------------------------
@@ -154,29 +140,16 @@ unsigned long find_median( int a_filtered[])
 void loop() {
  static unsigned long pulseDuration; //units, microseconds
  static unsigned long distanceCm; 
- static double velocity_of_sound, time_per_cm;
-
-
-
-
-
  
 
 
 
- static byte temperature, humidity, data[40];
+
   
-  if( millis()-currentTime > SAMPLE_TIME){    
-    // only update values if sensor did not fail
-    if( readTemperature(&temperature, &humidity, data) == true){
-      currentTemperature = temperature;
-      currentHumidity = humidity;
-    }
-    currentTime = millis();       // update time 
-  }
- velocity_of_sound = 331.40 + (0.06 * currentTemperature);//Calculation to incorperated temperature
+
+ 
   
- time_per_cm = 2UL*(1.00/((velocity_of_sound*100.00)/1000000.00));//does the math to convert velocity of sound 
+  
  //into the time it takes sound to travel one cm.
   
  pulseDuration = get_ultrasonic_measurment();
@@ -187,9 +160,7 @@ void loop() {
 
   
 
- //for(int k = 0; k<5; k++){
- //  
- //}
+
  
  a_filtered[i] = a_unfiltered[i];
 
@@ -215,7 +186,6 @@ void loop() {
  i++;
 
 
-  analogWrite(LED, 255/a_filtered[2]);
+  
 
 }
-
